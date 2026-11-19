@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>ULTRAKILL-1993</title>
+    <title>ULTRAKILL 1993</title>
     <style>
         body {
             margin: 0;
@@ -16,15 +16,19 @@
             font-family: monospace;
         }
         canvas {
+            width: 800px;
+            height: 500px;
             border: 2px solid #444;
             background: #000;
             cursor: crosshair;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
         }
         p { margin-top: 10px; }
     </style>
 </head>
 <body>
-    <canvas id="game" width="800" height="500"></canvas>
+    <canvas id="game" width="320" height="200"></canvas>
     <p>Click screen to lock mouse | WASD to move | Left/Right arrows to turn</p>
     <script src="game.js"></script>
 </body>

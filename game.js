@@ -1,5 +1,6 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
+ctx.imageSmoothingEnabled = false;
 
 let gameState = "menu";
 let elapsedTime = 0;
@@ -57,7 +58,9 @@ const enemies = [
     { x: 6.5, y: 3.5, spawnX: 6.5, spawnY: 3.5, hp: 30, speed: 1.6, biteCooldown: 0, hitFlash: 0, respawnTimer: 0 },
     { x: 13.5, y: 8.5, spawnX: 13.5, spawnY: 8.5, hp: 30, speed: 1.6, biteCooldown: 0, hitFlash: 0, respawnTimer: 0 },
     { x: 5.5, y: 11.5, spawnX: 5.5, spawnY: 11.5, hp: 30, speed: 1.6, biteCooldown: 0, hitFlash: 0, respawnTimer: 0 }
-];
+]
+
+const particles = [];
 
 // inputs
 const keys = {};
@@ -73,6 +76,10 @@ window.addEventListener("keydown", e => {
         e.preventDefault();
         shoot();
     }
+
+    if (gameState === "dead" && e.code === "Enter") {
+        location.reload();
+    }
 });
 
 window.addEventListener("mousedown", e => {
@@ -87,6 +94,9 @@ canvas.addEventListener("click", () => {
     }
     if (document.pointerLockElement !== canvas) {
         canvas.requestPointerLock();
+    }
+    if (gameState === "dead") {
+        location.reload();
     }
 });
 
@@ -106,15 +116,33 @@ function rotatePlayer(angle) {
     player.planeY = oldPlaneX * Math.sin(angle) + player.planeY * Math.cos(angle);
 }
 
+//blood efx
+function spawnBlood(x, y, count) {
+    for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 0.5 + Math.random() * 2.5;
+        particles.push({
+            x: x,
+            y: y,
+            z: 0.1 + (Math.random() - 0.5) * 0.4,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            vz: (Math.random() - 0.2) * 2.0,
+            life: 0.5 + Math.random() * 0.5,
+            size: 2 + Math.floor(Math.random() * 2)
+        });
+    }
+}
+
 //pew pew function
 function shoot() {
     if (weapon.recoil > 2) return;
-    weapon.recoil = 18;
+    weapon.recoil = 9;
     weapon.flashTimer = 4;
     weapon.beamTimer = 6;
 
     const crosshairX = canvas.width / 2;
-    const viewHeight = canvas.height - 60;
+    const viewHeight = canvas.height - 30;
 
     enemies.sort((a, b) => Math.hypot(a.x - player.x, a.y - player.y) - Math.hypot(b.x - player.x, b.y - player.y));
 
@@ -135,12 +163,13 @@ function shoot() {
         const spriteHeight = Math.abs(Math.floor((viewHeight / transformY) * 1.1));
         const spriteWidth = Math.floor(spriteHeight * 0.45);
 
-        const halfHitWidth = (spriteWidth * 0.35) + 4;
+        const halfHitWidth = (spriteWidth * 0.35) + 2;
         const wallDist = zBuffer[Math.floor(crosshairX)] || 999;
 
         if (Math.abs(crosshairX - spriteScreenX) <= halfHitWidth && transformY < wallDist) {
             e.hp -= 15;
             e.hitFlash = 6;
+            spawnBlood(e.x, e.y, 8);
 
             if (e.hp <= 0) {
                 player.kills++;
@@ -204,6 +233,30 @@ function updateEnemies(dt) {
     }
 }
 
+//particle updated
+function updateParticles(dt) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.life -= dt;
+        if (p.life <= 0) {
+            particles.splice(i, 1);
+            continue;
+        }
+    
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vz -= 5.5 * dt;
+        p.z += p.vz * dt;
+
+        if (p.z < -0.45) {
+            p.z = -0.45;
+            p.vx *= 0.5;
+            p.vy *= 0.5;
+            p.vz = 0;
+        }
+    }
+}
+
 //movement + collision
 function update(dt) {
     elapsedTime += dt;
@@ -243,6 +296,12 @@ function update(dt) {
     }
 
     updateEnemies(dt);
+    updateParticles(dt);
+    if (player.health <= 0) {
+        player.health = 0;
+        gameState = "dead";
+        document.exitPointerLock();
+    }
 }
 
 const miniScale = 6;
@@ -262,7 +321,7 @@ for (let r = 0; r < map.length; r++) {
 
 //draw enemy
 function drawEnemies() {
-    const viewHeight = canvas.height - 60;
+    const viewHeight = canvas.height - 30;
     const halfView = viewHeight / 2;
 
     const alive = enemies
@@ -312,21 +371,50 @@ function drawEnemies() {
     }
 }
 
+function drawParticles() {
+    const viewHeight = canvas.height - 30;
+    const halfView = viewHeight / 2;
+
+    for (const p of particles) {
+        const spriteX = p.x - player.x;
+        const spriteY = p.y - player.y;
+
+        const invDet = 1.0 / (player.planeX * player.dirY - player.dirX * player.planeY);
+        const transformX = invDet * (player.dirY * spriteX - player.dirX * spriteY);
+        const transformY = invDet * (-player.planeY * spriteX + player.planeX * spriteY);
+
+        if (transformY <= 0.1) continue;
+
+        const screenX = Math.floor((canvas.width / 2) * (1 + transformX / transformY));
+        const col = Math.max(0, Math.min(canvas.width - 1, screenX));
+        if (transformY >= zBuffer[col]) continue;
+
+        const screenY = Math.floor(halfView - (p.z * viewHeight) / transformY);
+        if (screenY < 0 || screenY >= viewHeight) continue;
+
+        const pixelSize = Math.max(1, Math.floor((p.size * 2.5) / transformY));
+        const shade = 1 / (1 + transformY * 0.15);
+
+        ctx.fillStyle = `rgb(${210 * shade | 0}, ${15 * shade | 0}, ${20 * shade | 0})`;
+        ctx.fillRect(screenX - pixelSize / 2, screenY - pixelSize / 2, pixelSize, pixelSize);
+    }
+}
+
 //draw weapon
 function drawWeapon() {
-    const bobX = Math.cos(weapon.bobTimer) * 8;
-    const bobY = Math.abs(Math.sin(weapon.bobTimer)) * 8;
+    const bobX = Math.cos(weapon.bobTimer) * 4;
+    const bobY = Math.abs(Math.sin(weapon.bobTimer)) * 4;
 
-    const gunX = (canvas.width / 2) - 16 + bobX;
-    const gunY = canvas.height - 60 + bobY + weapon.recoil;
+    const gunX = (canvas.width / 2) - 9 + bobX;
+    const gunY = canvas.height - 30 + bobY + weapon.recoil;
 
     // hitscan laser
     if (weapon.beamTimer > 0) {
         ctx.strokeStyle = `rgba(80, 200, 255, ${weapon.beamTimer / 6})`;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(gunX + 18, gunY - 95);
-        ctx.lineTo(canvas.width / 2, (canvas.height - 60) / 2);
+        ctx.moveTo(gunX + 9, gunY - 48);
+        ctx.lineTo(canvas.width / 2, (canvas.height - 30) / 2);
         ctx.stroke();
     }
 
@@ -334,50 +422,50 @@ function drawWeapon() {
     if (weapon.flashTimer > 0) {
         ctx.fillStyle = "#55ddff";
         ctx.beginPath();
-        ctx.arc(gunX + 18, gunY - 105, 22, 0, Math.PI * 2);
+        ctx.arc(gunX + 9, gunY - 52, 11, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.fillStyle = "#ffffff";
         ctx.beginPath();
-        ctx.arc(gunX + 18, gunY - 105, 10, 0, Math.PI * 2);
+        ctx.arc(gunX + 9, gunY - 52, 5, 0, Math.PI * 2);
         ctx.fill();
     }
 
     //revolver body
     //frame
     ctx.fillStyle = "#2b303a";
-    ctx.fillRect(gunX, gunY - 95, 36, 95);
+    ctx.fillRect(gunX, gunY - 48, 18, 48);
 
     //blue top shroud
     ctx.fillStyle = "#1d5bbf";
-    ctx.fillRect(gunX + 4, gunY - 105, 28, 70);
+    ctx.fillRect(gunX + 2, gunY - 52, 14, 35);
 
     //barel and core
     ctx.fillStyle = "#aeb8c4";
-    ctx.fillRect(gunX + 10, gunY - 115, 16, 40);
+    ctx.fillRect(gunX + 5, gunY - 58, 8, 20);
     ctx.fillStyle = "#00e5ff";
-    ctx.fillRect(gunX + 14, gunY - 85, 8, 35);
+    ctx.fillRect(gunX + 7, gunY - 42, 4, 18);
 }
 
 //hud gui
 function drawHUD() {
     // crosshair
     const cx = canvas.width / 2;
-    const cy = (canvas.height - 60) / 2;
+    const cy = (canvas.height - 30) / 2;
     ctx.strokeStyle = "#00ff66";
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(cx - 8, cy);
-    ctx.lineTo(cx + 8, cy);
-    ctx.moveTo(cx, cy - 8);
-    ctx.lineTo(cx, cy + 8);
+    ctx.moveTo(cx - 4, cy);
+    ctx.lineTo(cx + 4, cy);
+    ctx.moveTo(cx, cy - 4);
+    ctx.lineTo(cx, cy + 4);
     ctx.stroke();
 
     // minimap
-    const scale = 6;
-    const pad = 10;
+    const scale = 3;
+    const pad = 5;
     ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-    ctx.fillRect(pad - 2, pad - 2, map[0].length * scale + 4, map.length * scale + 4);
+    ctx.fillRect(pad - 1, pad - 1, map[0].length * scale + 2, map.length * scale + 2);
     for (let r = 0; r < map.length; r++) {
         for (let c = 0; c < map[r].length; c++) {
             if (map[r][c] > 0) {
@@ -391,15 +479,15 @@ function drawHUD() {
     const px = pad + player.x * scale;
     const py = pad + player.y * scale;
     ctx.fillStyle = "#ffff00";
-    ctx.fillRect(px - 2, py - 2, 4, 4);
+    ctx.fillRect(px - 1, py - 1, 2, 2);
     ctx.strokeStyle = "#ffff00";
     ctx.beginPath();
     ctx.moveTo(px, py);
-    ctx.lineTo(px + player.dirX * 10, py + player.dirY * 10);
+    ctx.lineTo(px + player.dirX * 5, py + player.dirY * 5);
     ctx.stroke();
 
     // bottom bar
-    const barHeight = 60;
+    const barHeight = 30;
     const barY = canvas.height - barHeight;
 
     //run time
@@ -408,38 +496,41 @@ function drawHUD() {
     const tenths = Math.floor((elapsedTime * 10) % 10);
 
     ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-    ctx.fillRect(canvas.width - 145, 10, 135, 34);
+    ctx.fillRect(canvas.width - 75, 5, 70, 18);
 
     ctx.textAlign = "right";
-    ctx.font = "bold 20px monospace";
+    ctx.font = "bold 10px monospace";
     ctx.fillStyle = "#ffffff";
-    ctx.fillText(`${mins}:${secs}.${tenths}`, canvas.width - 18, 38);
+    ctx.fillText(`${mins}:${secs}.${tenths}`, canvas.width - 8, 16);
 
     ctx.fillStyle = "#1c1c1c";
     ctx.fillRect(0, barY, canvas.width, barHeight);
 
     ctx.strokeStyle = "#555";
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2;
     ctx.strokeRect(0, barY, canvas.width, barHeight);
+
+    const leftX = canvas.width * 0.22;
+    const rightX = canvas.width * 0.78;
 
     // hud labels + num
     ctx.textAlign = "center";
-    ctx.font = "bold 14px monospace";
+    ctx.font = "bold 9px monospace";
     ctx.fillStyle = "#888";
-    ctx.fillText("HEALTH", 140, barY + 20);
-    ctx.fillText("KILLS", 660, barY + 20);
+    ctx.fillText("HEALTH", leftX, barY + 9);
+    ctx.fillText("KILLS", rightX, barY + 9);
 
-    ctx.font = "bold 28px monospace";
+    ctx.font = "bold 15px monospace";
     ctx.fillStyle = player.health > 25 ? "#cc2222" : "#ff0000";
-    ctx.fillText(`${player.health}%`, 140, barY + 48);
+    ctx.fillText(`${player.health}%`, 70, barY + 26);
 
     ctx.fillStyle = "#cccccc";
-    ctx.fillText(`${player.kills}`, 660, barY + 48)
+    ctx.fillText(`${player.kills}`, rightX, barY + 26)
 }
 
 // raycasting rendering
 function draw() {
-    const viewHeight = canvas.height - 60;
+    const viewHeight = canvas.height - 30;
     const halfView = viewHeight / 2;
 
     ctx.fillStyle = "#1c1c1c"
@@ -513,6 +604,7 @@ function draw() {
         ctx.fillRect(x, drawStart, 1, drawEnd - drawStart);
     }
     drawEnemies();
+    drawParticles();
     drawWeapon();
     drawHUD();
 }
@@ -527,16 +619,59 @@ function drawMenu() {
 
     ctx.textAlign = "center";
     ctx.fillStyle = "#cc2222";
-    ctx.font = "bold 64px monospace";
+    ctx.font = "bold 32px monospace";
     ctx.fillText("ULTRAKILL '93", canvas.width / 2, 160);
 
     ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 24px monospace";
+    ctx.font = "bold 12px monospace";
     ctx.fillText ("[ CLICK OR PRESS ENTER TO START ]", canvas.width / 2, 270);
 
     ctx.fillStyle = "#888888";
-    ctx.font = "16px monospace";
+    ctx.font = "8px monospace";
     ctx.fillText("WASD: Move | Mouse or Arrow: Turn | ESC: Unlock Mouse", canvas.width / 2, 400);
+}
+
+function drawDeathScreen() {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    ctx.translate(canvas.width / 2, 90);
+    ctx.scale(1.5, 1.5);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(-20, -20, 40, 30);
+    ctx.fillRect(-16, -25, 32, 5);
+    ctx.fillRect(-16, 10, 32, 8);
+    ctx.fillRect(-13, 18, 26, 7);
+
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(-14, -13, 10, 12);
+    ctx.fillRect(4, -13, 10, 12);
+
+    ctx.fillRect(-3, 2, 6, 7);
+
+    ctx.fillStyle = "#ffffff";
+    for (let i = -10; i <= 8; i += 6) {
+        ctx.fillRect(i, 13, 4, 8);
+    }
+
+    ctx.restore();
+
+    ctx.textAlign = "center";
+    
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 36px monospace";
+    ctx.fillText("YOU DIED", canvas.width / 2, 290);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "14x monospace";
+    ctx.fillText(`KILLS ${player.kills}`, canvas.width / 2, 230);
+
+    ctx.fillStyle = "#888888";
+    ctx.font = "11px monospace";
+    ctx.fillText("[ CLICK OR PRESS ENTER TO RESTART ]",
+        canvas.width / 2, 170);
 }
 
 let lastTime = performance.now()
@@ -551,6 +686,8 @@ function gameLoop(now = performance.now()) {
     } else if (gameState === "playing") {
         update(dt);
         draw();
+    } else if (gameState === "dead") {
+        drawDeathScreen();
     }
     requestAnimationFrame(gameLoop);
 }
