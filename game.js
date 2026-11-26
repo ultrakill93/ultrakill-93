@@ -5,40 +5,79 @@ ctx.imageSmoothingEnabled = false;
 let gameState = "menu";
 let elapsedTime = 0;
 let difficulty = null;
+let level = "0-1"
 
+//1-3 colors, 0 floor/roof, 4 spawn, 5 enemy spawn (tbd), 6 doors (tbd), 7 end gate to end level (tbd)
 //map
+
+//enemy moveable tiles
+const allowed_tiles = [0, 4, 5, 7];
+
 const map = [
-    [1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0],
-    [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0],
-    [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0],
-    [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0],
-    [1,0,0,0,0,0,0,0,0,1,0,1,1,1,1,1],
-    [1,0,0,0,0,0,0,0,0,1,0,1,0,0,0,1],
-    [1,0,0,0,0,0,0,0,0,1,0,1,0,0,0,1],
-    [1,1,1,1,0,0,1,1,1,1,1,1,1,0,1,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,1,1,1,0,0,1,1,1,1,1,1,1,0,1,1],
-    [1,0,0,0,0,0,0,0,0,1,0,1,0,0,0,1],
-    [1,0,0,1,0,0,1,0,0,1,0,1,0,0,0,1],
-    [1,1,1,1,0,0,1,1,1,1,0,1,1,1,1,1],
-    [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0],
-    [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0],
-    [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0],
-    [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0],
-    [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0],
-    [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0],
-    [1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0]
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,1,5,5,5,5,5,5,1,0,0,0,1,5,0,5,0,5,0,1,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,1,5,0,5,0,5,0,1,0,0,0,0,1,1,1,1,1,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,1,0,0],
+    [0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,1,0,0],
+    [0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,5,1,0,1,0,0],
+    [0,0,0,0,0,0,1,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,1,5,1,0,1,0,0],
+    [0,0,0,0,0,1,0,0,1,0,0,0,1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,1,0,0,1,0,1,5,1,0,1,0,0],
+    [0,0,0,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,1,5,0,5,0,5,0,1,0,0,1,0,1,5,1,0,1,0,0],
+    [0,0,0,0,0,1,0,1,0,0,0,0,1,5,5,5,5,5,5,1,0,0,0,1,5,0,5,0,5,0,1,0,0,1,0,1,0,1,0,1,0,0],
+    [0,0,0,0,0,1,0,1,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,0,0,1,0,1,0,1,0,1,0,0],
+    [0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1,5,1,0,0],
+    [0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,5,1,0,0],
+    [0,1,1,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,5,1,0,0],
+    [0,1,5,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0],
+    [0,1,5,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0],
+    [0,1,5,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0],
+    [0,1,0,1,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0],
+    [0,1,0,1,0,1,5,0,0,0,5,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0],
+    [0,1,0,1,0,1,0,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0],
+    [0,1,0,1,0,1,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,1,1,1],
+    [0,1,0,1,1,1,0,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,5,0,0,0,5,1],
+    [0,1,0,0,0,0,5,0,0,0,5,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+    [0,1,1,1,1,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+    [0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,5,0,0,0,5,1],
+    [0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,1,1,1],
+    [0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0],
+    [0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0],
+    [0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0],
+    [0,0,0,0,0,1,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0],
+    [0,0,0,0,0,1,5,5,5,5,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+    [0,0,0,0,0,1,1,1,1,5,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,7,0,0,1],
+    [0,0,0,0,0,0,0,0,1,5,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1],
+    [0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,1,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,1,5,0,0,5,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,1,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,1,5,0,0,0,5,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,1,5,0,0,0,5,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,1,4,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 ];
+
+const spawnY = map.findIndex(row => row.includes(4));
+const spawnX = spawnY !== -1 ? map[spawnY].indexOf(4) : 3;
+const spawnRow = spawnY !== -1 ? spawnY : 3;
 
 //player
 const player = {
-    x: 3.5,
-    y: 3.5,
-    dirX: 1,
-    dirY: 0,
-    planeX: 0,
-    planeY: 0.66,
+    x: spawnX + 0.5,
+    y: spawnRow + 0.5,
+    dirX: 0,
+    dirY: -1,
+    planeX: 0.66,
+    planeY: 0,
     moveSpeed: 2.5,
     rotSpeed: 1.8,
     health: 100,
@@ -54,11 +93,30 @@ const weapon = {
 
 const zBuffer = new Array(canvas.width).fill(0);
 
-const enemies = [
-    { x: 6.5, y: 3.5, spawnX: 6.5, spawnY: 3.5, hp: 30, speed: 1.6, biteCooldown: 0, hitFlash: 0, respawnTimer: 0 },
-    { x: 13.5, y: 8.5, spawnX: 13.5, spawnY: 8.5, hp: 30, speed: 1.6, biteCooldown: 0, hitFlash: 0, respawnTimer: 0 },
-    { x: 5.5, y: 11.5, spawnX: 5.5, spawnY: 11.5, hp: 30, speed: 1.6, biteCooldown: 0, hitFlash: 0, respawnTimer: 0 }
-]
+//filth spawn pad
+const EFspawnY = map.findIndex(row => row.includes(5));
+const EFspawnX = EFspawnY !== -1 ? map[EFspawnY].indexOf(5) : 3;
+const EFspawnRow = EFspawnY !== -1 ? EFspawnY : 3;
+
+const enemies = [];
+
+for (let y = 0; y < map.length; y++) {
+    for (let x = 0; x < map[y].length; x++) {
+        if (map[y][x] === 5) {
+            enemies.push({
+                x: x + 0.5,
+                y: y + 0.5,
+                spawnX: x + 0.5,
+                spawnY: y + 0.5,
+                hp: 30,
+                speed: 1.6,
+                biteCooldown: 0,
+                hitFlash: 0,
+                respawnTimer: 0
+            });
+        }
+    }
+}
 
 const particles = [];
 
@@ -200,16 +258,6 @@ window.addEventListener("keydown", e => {
 function updateEnemies(dt) {
     for (const e of enemies) {
         if (e.hp <= 0) {
-            if (e.respawnTimer > 0) {
-                e.respawnTimer -= dt;
-                if (e.respawnTimer <= 0) {
-                    e.x = e.spawnX;
-                    e.y = e.spawnY;
-                    e.hp = 30;
-                    e.hitFlash = 0;
-                    e.biteCooldown = 0;
-                }
-            }
             continue;
         }
         if (e.hitFlash > 0) e.hitFlash --;
@@ -223,8 +271,8 @@ function updateEnemies(dt) {
             const vx = (dx / dist) * e.speed * dt;
             const vy = (dy / dist) * e.speed * dt;
 
-            if (map[Math.floor(e.y)][Math.floor(e.x + vx)] === 0) e.x += vx;
-            if (map[Math.floor(e.y + vy)][Math.floor(e.x)] === 0) e.y += vy;
+            if (allowed_tiles.includes(map[Math.floor(e.y)][Math.floor(e.x + vx)])) e.x += vx;
+            if (allowed_tiles.includes(map[Math.floor(e.y + vy)][Math.floor(e.x)])) e.y += vy;
         } else if (dist <= 0.7 && e.biteCooldown <= 0) {
             player.health = Math.max(0, player.health - 15);
             e.biteCooldown = 1.0;
@@ -288,10 +336,11 @@ function update(dt) {
 
 
     const pad = 0.2;
-    if (map[Math.floor(player.y)][Math.floor(player.x + moveX + Math.sign(moveX) * pad)] === 0) {
+    if (allowed_tiles.includes(map[Math.floor(player.y)][Math.floor(player.x + moveX + Math.sign(moveX) * pad)])) {
         player.x += moveX;
     }
-    if (map[Math.floor(player.y + moveY + Math.sign(moveY) * pad)][Math.floor(player.x)] === 0) {
+
+    if (allowed_tiles.includes(map[Math.floor(player.y + moveY + Math.sign(moveY) * pad)][Math.floor(player.x)])) {
         player.y += moveY;
     }
 
@@ -312,8 +361,8 @@ const miniCtx = miniCanvas.getContext("2d");
 
 for (let r = 0; r < map.length; r++) {
     for (let c = 0; c < map[r].length; c++) {
-        if (map[r][c] > 0) {
-            miniCtx.fillStyle = map[r][c] === 2 ? "#32a046" : map[r][c] === 3 ? "#3c64c8" : "#aa3333";
+        if (map[r][c] > 0 && map[r][c] !== 4 && map[r][c] !== 5) {
+            miniCtx.fillStyle = map[r][c] === 2 ? "#32a046" : map[r][c] === 3 ? "#3c64c8" : map[r][c] === 4 ? "#3c64c2" : "#aa3333";
             miniCtx.fillRect(c * miniScale, r * miniScale, miniScale, miniScale);
         }
     }
@@ -352,7 +401,7 @@ function drawEnemies() {
         const shade = 1 / (1 + transformY * 0.15);
         const bodyColor = e.hitFlash > 0
             ? "#ff4444"
-            : `rgb(${132 * shade | 0}, ${130 * shade | 0}, ${82 * shade | 0})`; // Official Filth olive-tan (#848252)
+            : `rgb(${132 * shade | 0}, ${130 * shade | 0}, ${82 * shade | 0})`;
 
         //torso
         ctx.fillStyle = bodyColor;
@@ -468,7 +517,7 @@ function drawHUD() {
     ctx.fillRect(pad - 1, pad - 1, map[0].length * scale + 2, map.length * scale + 2);
     for (let r = 0; r < map.length; r++) {
         for (let c = 0; c < map[r].length; c++) {
-            if (map[r][c] > 0) {
+            if (map[r][c] > 0 && map[r][c] !== 4 && map[r][c] !== 5 && map[r][c] !== 7) {
                 ctx.fillStyle = map[r][c] === 2 ? "#32a046" : map[r][c] === 3 ? "#3c64c8" : "#aa3333";
                 ctx.fillRect(pad + c * scale, pad + r * scale, scale, scale);
             }
@@ -581,7 +630,7 @@ function draw() {
             }
             if (!map[mapY] || map[mapY][mapX] === undefined) {
                 hit = 1;
-            } else if (map[mapY][mapX] > 0) {
+            } else if (map[mapY][mapX] > 0 && map[mapY][mapX] !== 4 && map[mapY][mapX] !== 5) {
                 hit = map[mapY][mapX];
             }
             
@@ -598,6 +647,7 @@ function draw() {
         let r = 180, g = 50, b = 50;
         if (hit === 2) { r = 50; g = 160; b = 70; }
         if (hit === 3) { r = 60; g = 100; b = 200; }
+        if (hit === 7) { r = 128; g = 128; b = 128; }
 
         const shade = (side === 1 ? 0.7 : 1.0) / (1 + perpWallDist * 0.15);
         ctx.fillStyle = `rgb(${r * shade}, ${g * shade}, ${b * shade})`;
@@ -674,7 +724,41 @@ function drawDeathScreen() {
         canvas.width / 2, 170);
 }
 
+function drawLevelScreen() {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.scale(1.5, 1.5);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 16px monospace";
+    ctx.fillText("LEVEL COMPLETE", 0, -10);
+
+    ctx.font = "8px monospace";
+    ctx.fillText(`KILLS ${player.kills}`, 0, 15);
+
+    ctx.restore();
+}
+
 let lastTime = performance.now()
+
+let eventTriggered = false;
+
+function checkTriggers() {
+    const x = Math.floor(player.x);
+    const y = Math.floor(player.y);
+
+    if (map[y][x] === 7 && !eventTriggered) {
+            eventTriggered = true;
+            gameState = "level_complete";
+    }
+}
 
 //main loop
 function gameLoop(now = performance.now()) {
@@ -686,6 +770,9 @@ function gameLoop(now = performance.now()) {
     } else if (gameState === "playing") {
         update(dt);
         draw();
+        checkTriggers();
+    } else if (gameState === "level_complete") {
+        drawLevelScreen();
     } else if (gameState === "dead") {
         drawDeathScreen();
     }
